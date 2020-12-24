@@ -1,0 +1,110 @@
+---
+title: "R_chapter2_HW: 作業 2 - 資料整理挑戰 - 股市資料整理"
+author: "Jung-Cheng Huang"
+date: "12/24/2020"
+output: html_document
+---
+---
+本次的作業中，我們請工程師從公開資料源下載了「元大寶來台灣卓越50證券投資信託基金」(俗稱 0050) 成分股從 2011 年到 2015 年的股價資料，
+如下所示。其中每個 column 的意義：
+
+security_id：每檔股票的證券代碼與名稱，如：1101 台泥 代表證券代碼為 1101，公司名稱為台泥。
+type：open 代表開盤價，close 代表收盤價。
+2015/12/31：2015年12月31日當日的交易價格。
+…以此類推
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read the document}
+stock.data <- read_csv("TWSE_Stock Data_2012-2017.csv")
+stock.data
+
+```
+
+問題 1 (Tidy 原則)
+這個資料集合顯然不符合 tidy 原則，你認為這個資料集合有下列哪些問題呢？（多選）
+
+A.Column 其實是值而不是變數
+B. 把變數當成值
+C. 多個變數儲存在同一個 column 中
+D. 一個變數被分存在不同 columns 中
+---
+Ans: ABC. 
+For instance, A: Date is value, it is not a variable. B: column type is wrong, because open and close are variables. C: Data can be separate by year, month and day. 
+---
+
+問題 2 (實際操作：gather 函數)
+請你利用課堂教授過的 gather 函數，將資料整理成以下四個 columns 的格式（只顯示前 6 個 row），如範例資料所示。請問該資料的程式碼應該如何撰寫？（填充題，請完成空格 2.1、2.2、2.3）
+```{r gather implementation}
+# Get the date column
+stock.data.colnames <- colnames(stock.data)
+
+stock.data <- stock.data %>%
+  gather(
+    key = "date",
+    value = "price",
+    stock.data.colnames[3:ncol(stock.data)]
+  )
+
+head(stock.data)
+```
+
+問題 3 (實際操作：spread 函數)
+請你利用課堂教授過的 spread 函數，將資料整理成包含以下四個 columns 的格式：
+
+securty_id
+date
+open：該證券在該日期的開盤價
+close：該證券在該日期的收盤價
+如範例資料所示。請問該資料的程式碼應該如何撰寫？（填充題，請完成空格 3.1、3.2）
+
+```{r spread implementation}
+# Create open and close columns
+stock.data <- stock.data %>%
+  spread(
+    key = "type",
+    value = "price"
+  )
+
+head(stock.data)
+```
+
+問題 4 (實際操作：separate 函數)
+上一個問題完成後的資料集合，date 的資料裡面是 yyyy/mm/dd 的形式，我們希望將資料的年、月、日分開為三個 columns，如範例資料所示。請問該資料的程式碼應該如何撰寫？（填充題，請完成空格 4.1、4.2、4.3）
+
+
+```{r separate implementation}
+# Seperate date into year, month, and day columns
+stock.data <- stock.data %>%
+  separate(
+    col = date, 
+    into = c("year", "month", "day"),
+    sep = "/",
+    convert = TRUE
+  )
+
+head(stock.data)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
