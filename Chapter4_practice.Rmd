@@ -1,0 +1,244 @@
+---
+title: "R 語言特訓班 4：關聯資料庫與資料整合 練習"
+author: "Jung-Cheng Huang"
+date: "1/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 4-1：關聯資料庫 (Relational Database) 簡介
+
+# Tidy 中的變數 (variale) / column ⇒ 關聯模型中稱為 Attribute
+# Tidy 中的個體 (observation) / row ⇒ 關聯模型中稱為 Tuple
+# Tidy 中的觀察物件形成的 table ⇒ 關聯模型中稱為 Relation
+
+# 主鍵 (Primary Key)：用來辨識 tuple 的欄位, 一個 tuple 只能有一個 primary key value，而且 primary key values 不能重複。
+# 連外鍵 (Foreign Key)：用來連結其他資料表主鍵之用的連結鍵。
+
+## 案例：線上連續劇觀看資料
+假設我們在線上戲劇觀看平台公司工作，我們最重要的資料集合有三個：
+
+# watch.table：使用者的觀看內容與行為紀錄
+# user.table：使用者的個人資料
+# drame.table：戲劇的相關資料
+```{r library}
+library(tidyverse)
+```
+
+
+```{r tables}
+# watch.table：使用者的觀看內容與行為紀錄
+watch.table <- read_csv("watch_table.csv")
+watch.table
+
+# user.table：使用者的個人資料
+user.table <- read_csv("user_table.csv")
+user.table
+# drama.table：戲劇的相關資料
+drama.table <- read_csv("drama_table.csv")
+drama.table
+```
+
+
+# 上述三個資料集合，其實是透過下列方式相互連結的：
+# watch.table：主鍵為 watch_id，連外鍵為 user_id 與 drama_id
+# user.table：主鍵為 user_id，無連外鍵
+# drame.table：主鍵為 drama_id，無連外鍵
+
+## 4-2：合併資料集合並增加新變數
+如果想要將上述案例中的三個表格總合成一張大表，在 R 中可以利用各類的 join 指令幫你完成任務。 Tidy 架構中連結兩張表的方式主要有以下兩種：
+
+mutating join：將兩張表結合，並在新的表格中納入兩張表格有的變數
+filtering join：透過另一張表的資訊篩選目標資料表格的 rows
+
+
+```{r practice4-2}
+# Create the table A and table B
+table.A <- tribble(
+  ~key, ~val_A,
+  1, "a_val_1",
+  2, "a_val_2",
+  3, "a_val_3",
+  4, "a_val_4"
+)
+table.B <- tribble(
+  ~key, ~val_B,
+  1, "b_val_1",
+  2, "b_val_2",
+  5, "b_val_5"
+)
+
+# 1. Inner Join 與 Full Join
+## Inner join 會取兩個資料集合交集的個體進行合併
+
+table.A %>% 
+  inner_join(table.B)
+## Full join 則會取兩個資料集合的聯集進行合併，
+
+table.A %>% 
+  full_join(table.B)
+
+# 2. Left Join 與 Right Join 
+## Left join 會將 A 集合中的所有個體與 B 集合的變數合併
+table.A %>%
+  left_join(table.B)
+
+## Right join 會將 A 集合中的所有出現在 B 集合的個體其變數與 B 集合的變數合併
+table.A %>%
+  right_join(table.B)
+```
+
+3. 多重鍵值的資料表進行合併
+
+```{r practice4}
+#只有一張資料表有重複鍵值
+table.A <- tribble(
+  ~key, ~val_A, ~foreign_key,
+  "A1", "a_val_1", "B1",
+  "A2", "a_val_2", "B1",
+  "A3", "a_val_3", "B2",
+  "A4", "a_val_4", "B2"
+)
+
+table.B <- tribble(
+  ~key, ~val_B,
+  "B1", "b_val_1",
+  "B2", "bb_val_2"
+)
+
+# 兩張資料表有重複鍵值
+table.A %>% 
+  left_join(table.B, by = c("foreign_key" = "key"))
+
+table.A <- tribble(
+  ~key, ~val_A, ~foreign_key,
+  "A1", "a_val_1", "B1",
+  "A2", "a_val_2", "B1",
+  "A3", "a_val_3", "B2",
+  "A4", "a_val_4", "B2"
+)
+
+table.B <- tribble(
+  ~key, ~val_B,
+  "B1", "b_val_1",
+  "B2", "bb_val_2.1",
+  "B2", "bb_val_2.2"
+)
+
+table.A %>% 
+  left_join(table.B, by = c("foreign_key" = "key"))
+```
+## 4. 個案練習
+
+```{r practice4-4}
+full.table <- watch.table %>%
+  left_join(
+    user.table,
+    by = "user_id"
+  ) %>%
+  left_join(
+    drama.table,
+    by = "drama_id"
+  )
+
+print(full.table)
+
+#有了整張表格之後，我們就可以計算一些加總報表，比如說：
+## 每部劇男性/女性的觀看次數
+full.table %>%
+  group_by(drama_id, gender) %>%
+  summarize(view_count = length(watch_id))
+## 每部劇男性/女性的觀看人數
+full.table %>%
+  group_by(drama_id, gender) %>%
+  summarize(user_count = length(unique(user_id)))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#4-3：透過其他資料表篩選個體
+在 dplyr 中還有一種 join 的方式，不是將 table.B 的變數納入新資料表中，而是篩選出比對到的個體，其中：
+
+semi_join：table.A 篩選出有出現在 table.B 的個體
+anti_join：table.A 篩選出沒出現在 table.B 的個體
+
+
+```{r practice4-3}
+# Easy
+user.table %>%
+  semi_join(watch.table, by = "user_id")
+# Hard-to-read code
+user.table %>%
+  filter(user_id %in% watch.table$user_id)
+
+# Filter non-matched observationn
+user.table %>%
+  anti_join(watch.table, by = "user_id")
+```
+
+
+#4-4：集合運算
+而此處介紹的功能則是比對 table.A 的整個 row 是否有出現 table.B 之中。
+
+intersect(x, y)：回傳同時出現在 x 與 y 的觀察個體
+union(x, y)：回傳有出現在 x 或 y 的觀察個體，且個體 / row 不會重複
+setdiff(x, y): 回傳有出現在 x 但沒有出現在 y 的觀察個體
+
+
+```{r practice4-4}
+table.A <- tribble(
+  ~var_1, ~var_2,
+  "1-1", "1-2",
+  "2-1", "2-2",
+  "3-1", "3-2-A"
+)
+
+table.B <- tribble(
+  ~var_1, ~var_2,
+  "1-1", "1-2",
+  "2-1", "2-2",
+  "3-1", "3-2-B",
+  "5-1", "5-2"
+)
+
+table.A %>% intersect(table.B)
+table.A %>% union(table.B)
+table.A %>% setdiff(table.B)
+table.B %>% setdiff(table.A)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
