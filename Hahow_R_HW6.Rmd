@@ -1,0 +1,140 @@
+---
+title: "第 7 章，作業 1 - A/B 測試概念與個案實作練習"
+author: "Jung-Cheng Huang"
+date: "5/30/2021"
+output: html_document
+---
+作業說明
+在這個章節的作業中，我們同樣利用「使用者購買行為」的資料集分析實驗設計的結果，了解影響消費者購買金額的重要變因，並探究哪個因素最能夠影響實驗結果。
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+設置工作路徑，並確定兩個資料集合都放置在你的工作路徑：
+
+```{r}
+# Question: file:///Users/dodsonhuang/Desktop/Schedule_Summer2021/Winter2020/R%E8%AA%9E%E8%A8%80%E5%92%8C%E5%95%86%E6%A5%AD%E5%88%86%E6%9E%90/Chapter6/ab_test.html
+# Required Library
+library("tidyverse")
+
+# Please set your own working directory
+setwd("/Users/dodsonhuang/Desktop/Schedule_Summer2021/Winter2020/R語言和商業分析/Chapter6")
+
+# Read Dataset
+test.table <- read_csv("test_table.csv", locale= locale(encoding='UTF-8'))
+user.table <- read_csv("user_table.csv", locale= locale(encoding='UTF-8'))
+
+#為了避免程式中的隨機效果造成答案不一致，請將隨機種子設置為500：
+set.seed(500)
+```
+
+確定了實驗個體後，我們就可以來合併實驗表格與使用者資料，邏輯應該是：test_table要全部資料都有，user_table則不需要，因此採用 left_join 的方式。
+```{r}
+test.data <- left_join(test.table,
+                       user.table,
+                       by = "user_id")
+
+head(test.data)
+```
+在資料裡面最大的問題就是：date 應該是日期變數，以及眾多資料其實是因子變數。因此，我們需要做變數類別的轉換。
+```{r}
+test.data$date <- as.Date(test.data$date, format = "%Y/%m/%d")
+
+for(i in c(3,4,6,7,9)){
+  test.data[,i] <- as.factor(test.data[[i]])
+}
+
+head(test.data)
+```
+題目一
+
+篩選出屬於日本市場的使用者，針對購買金額進行獨立樣本 t 檢定。請問：實驗組的購買金額有沒有顯著高於對照組的購買金額？
+
+反之，針對購買金額進行獨立樣本 t 檢定，對照組金額有沒有顯著高於實驗組金額？
+
+請利用 ggplot2 繪製實驗組與對照組購買金額機率密度圖 (density plot)。
+
+日本與實驗組間的交互影響
+```{r}
+test.data %>%
+  group_by(country, test) %>%
+  filter(country=='JP') %>%
+  summarise(mean_purchase_amount = mean(purchase_amount))
+
+
+```
+篩選出屬於日本市場的使用者，針對購買金額進行獨立樣本 t 檢定。請問：實驗組的購買金額有沒有顯著高於對照組的購買金額？
+```{r}
+#test.data <- test.data %>% filter(country == "JP")
+JP.data <- filter(test.data,country=="JP")
+
+t.test(JP.data[JP.data$test == 1, ]$purchase_amount,
+       JP.data[JP.data$test == 0, ]$purchase_amount,
+       alternative = "greater")
+
+# No, it's lower than control group.
+```
+反之，針對購買金額進行獨立樣本 t 檢定，對照組金額有沒有顯著高於實驗組金額？
+```{r}
+t.test(JP.data[JP.data$test == 1, ]$purchase_amount,
+       JP.data[JP.data$test == 0, ]$purchase_amount,
+       alternative = "less")
+# 有
+```
+
+請利用 ggplot2 繪製實驗組與對照組購買金額機率密度圖 (density plot)。
+```{r}
+ggplot(JP.data, aes(purchase_amount, fill = test, colour = test)) +
+  geom_density(alpha = 0.3) +
+  xlab("Purchase Amount") + ylab("Density") +
+  ggtitle("Density Plot of Purchase Amount: Test vs Control") + 
+  theme_bw()
+
+
+```
+
+題目二
+
+建立購物金額與是否為實驗組、設備、性別與服務的變異數分析(ANOVA)模型。請問，模型中有哪些因子是顯著的？
+請利用 ggplot2 繪製購買金額對應不同服務的盒狀圖 (boxplot)。
+請進行 Tukey 事後檢定，了解 test 對於購買金額的影響，並繪製信賴區間圖形。
+請進行 Tukey 事後檢定，了解 device 對於購買金額的影響，並繪製信賴區間圖形。
+
+建立購物金額與是否為實驗組、設備、性別與服務的變異數分析(ANOVA)模型。請問，模型中有哪些因子是顯著的？
+```{r}
+aov.model <- aov(
+  purchase_amount ~ test + device + gender + service, 
+  JP.data)
+summary(aov.model)
+# Ans: test, device, service.
+```
+請利用 ggplot2 繪製購買金額對應不同服務的盒狀圖 (boxplot)。
+```{r}
+ggplot(JP.data, aes(x = service, y = purchase_amount)) +
+  geom_boxplot() +
+  xlab("Service") + ylab("Purchase Amount") +
+  ggtitle("Boxplot of Purchase Amount by Service") +
+  theme_bw()
+
+test.data %>%
+  group_by(country, service) %>%
+  filter(country=='JP') %>%
+  summarise(mean_purchase_amount = mean(purchase_amount))
+
+```
+請進行 Tukey 事後檢定，了解 test 對於購買金額的影響，並繪製信賴區間圖形。
+```{r}
+TukeyHSD(aov.model, "test")
+plot(TukeyHSD(aov.model, "test"))
+```
+
+請進行 Tukey 事後檢定，了解 device 對於購買金額的影響，並繪製信賴區間圖形。
+```{r}
+TukeyHSD(aov.model, "device")
+plot(TukeyHSD(aov.model, "device"))
+```
+
+
+
+
